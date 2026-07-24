@@ -1,0 +1,20 @@
+# Environnements virtuels
+venv/
+venv_paddle/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# VS Code
+.vscode/
+
+# Logs
+logs/
+
+# Sorties
+output/
+
+# Fichiers temporaires
+*.log

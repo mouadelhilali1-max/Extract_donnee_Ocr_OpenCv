@@ -1,0 +1,11 @@
+# Packages required by the final CATIA annotation-tree program.
+# Tesseract OCR itself must be installed separately on Windows.
+opencv-python
+numpy
+pandas
+pytesseract
+mss
+PyGetWindow
+PyAutoGUI
+pywin32
+openpyxl

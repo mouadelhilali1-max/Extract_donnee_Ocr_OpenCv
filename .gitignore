@@ -5,16 +5,29 @@ venv_paddle/
 
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 
-# VS Code
+# VS Code & IDEs
 .vscode/
+.idea/
 
-# Logs
+# Logs & temporaires
 logs/
-
-# Sorties
-output/
-
-# Fichiers temporaires
 *.log
+*.tmp
+
+# Médias lourds et archives
+*.mp4
+*.avi
+*.mkv
+*.zip
+*.tar.gz
+captures_annotations_backup_*/
+codex_backups/
+
+# Sorties & Résultats locaux
+output/
+results/
+exports/
+

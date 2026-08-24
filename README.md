@@ -141,8 +141,10 @@ python -m unittest discover -s tests -p "test_*.py"
 
 ---
 
-### Méthode 5 : Extraction de l'Arbre de Gauche par Défilement & Captures (`main.py`)
-Ce module permet d'extraire automatiquement l'arbre de construction de gauche depuis la racine **« Résultat d'un ensemble d'annotations »** par défilement progressif de la souris (*scrolling*) et captures d'écran successives avec chevauchement (*overlapping*) :
+### Méthode 5 : Extraction de l'Arbre des Annotations FTA par Défilement & Captures (`main.py`)
+> **💡 Justification Technique Importante** :  
+> Dans CATIA V5, la branche **« Résultat d'un ensemble d'annotations »** contient des objets 3D FTA/TPS qui ne sont **pas exposés par l'API Automation COM standard**. C'est pourquoi nous avons développé ce module dédié qui extrait cette arborescence de manière optique par défilement automatique (*scrolling*) et captures successives avec chevauchement (*overlapping*) :
+
 ```powershell
 python main.py
 ```

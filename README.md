@@ -141,6 +141,23 @@ python -m unittest discover -s tests -p "test_*.py"
 
 ---
 
+### Méthode 5 : Extraction de l'Arbre de Gauche par Défilement & Captures (`main.py`)
+Ce module permet d'extraire automatiquement l'arbre de construction de gauche depuis la racine **« Résultat d'un ensemble d'annotations »** par défilement progressif de la souris (*scrolling*) et captures d'écran successives avec chevauchement (*overlapping*) :
+```powershell
+python main.py
+```
+- **Déroulement de l'exécution** :
+  1. Le terminal affiche : `CATIA is ready. Scroll manually to 'Résultat d’un ensemble d’annotations' and press Enter...`
+  2. Vous positionnez la vue sur la ligne dans CATIA et appuyez sur **Entrée** dans le terminal.
+  3. Le script scrolle automatiquement jusqu'en bas, enregistre les captures dans `captures/runs/<date>/`, fusionne les lignes communes et reconstruit la hiérarchie.
+  4. Les résultats exportés sont disponibles dans `results/runs/<date>/excel/annotation_tree.xlsx`, `.csv` et `.json`.
+- **Options utiles** :
+  - `python main.py --auto-find-target` : Recherche et scrolle automatiquement depuis le haut de l'arbre.
+  - `python main.py --capture-only` : Enregistre uniquement les images de l'arbre sans lancer l'OCR.
+  - Consultez le guide complet dédié : [`README_TREE_EXTRACTION.md`](README_TREE_EXTRACTION.md).
+
+---
+
 ## 🔄 Procédure pour Traiter une Nouvelle Pièce (Vidage du Cache)
 
 Lorsque vous passez à un **autre fichier pièce (`.CATPart`)** ou à un **nouveau jeu de captures**, vous devez vider le cache pour garantir un calcul 100% neuf sans réutiliser les anciennes données.

@@ -8,9 +8,10 @@ Bienvenue dans le système automatisé d'extraction, d'analyse géométrique et 
 1. [Architecture Générale](#-architecture-générale)
 2. [Pré-requis Système de A à Z](#-pré-requis-système-de-a-à-z)
 3. [Installation Pas à Pas](#-installation-pas-à-pas)
-4. [Guide d'Exécution de A à Z](#-guide-dexécution-de-a-à-z)
-5. [Structure des Fichiers et Résultats Produits](#-structure-des-fichiers-et-résultats-produits)
-6. [Dépannage et Questions Fréquentes](#-dépannage-et-questions-fréquentes)
+4. [Toutes les Méthodes d'Exécution de A à Z](#-toutes-les-méthodes-dexécution-de-a-à-z)
+5. [Procédure pour Traiter une Nouvelle Pièce (Vidage du Cache)](#-procédure-pour-traiter-une-nouvelle-pièce-vidage-du-cache)
+6. [Structure des Fichiers et Résultats Produits](#-structure-des-fichiers-et-résultats-produits)
+7. [Dépannage et Questions Fréquentes](#-dépannage-et-questions-fréquentes)
 
 ---
 
@@ -94,34 +95,71 @@ pip install -r requirements.txt
 
 ---
 
-## 🚀 Guide d'Exécution de A à Z
+## 🚀 Toutes les Méthodes d'Exécution de A à Z
 
-Le projet propose 3 modes d'exécution adaptés à chaque cas d'usage :
+Le projet propose différentes commandes selon vos besoins :
 
-### Mode 1 : Pipeline Complet de Production (Recommandé avec CATIA V5 ouvert)
-1. Ouvrez votre logiciel **CATIA V5**.
-2. Ouvrez le fichier pièce (`.CATPart`) contenant les annotations et tolérances à analyser.
-3. Dans votre terminal avec l'environnement virtuel activé, lancez :
-   ```powershell
-   python module_catia_cotes_fonctionnelles/catia_functional_tolerances.py
-   ```
-4. **Résultat** : Le programme se connecte à CATIA, lit l'arbre, scanne les annotations visuelles, réalise le consensus et crée automatiquement le fichier Excel `.xlsx` ainsi que le fichier `.diagnostic.json` dans `results/excel/`.
+### Méthode 1 : Pipeline Complet de Production (Arbre CATIA + Scan Visuel + Export Excel)
+À utiliser lorsque **CATIA V5 est ouvert** avec votre pièce (`.CATPart`) active :
+```powershell
+python module_catia_cotes_fonctionnelles/catia_functional_tolerances.py
+```
+- **Ce que fait la commande** :
+  1. Se connecte à CATIA V5 et lit l'arbre des spécifications.
+  2. Lance automatiquement le scanner visuel sur les captures.
+  3. Rapproche chaque série avec son cadre physique.
+  4. Crée le classeur Excel final formaté dans `results/excel/`.
+  5. Génère le rapport de diagnostic JSON `.diagnostic.json`.
 
 ---
 
-### Mode 2 : Évaluation Visuelle Autonome (Sans avoir besoin d'ouvrir CATIA)
-Si vous souhaitez tester ou valider uniquement la détection géométrique et l'OCR sur les captures d'écran déjà enregistrées :
+### Méthode 2 : Lancement Direct du Scanner Visuel d'Annotations
+Pour exécuter directement le moteur de vision et d'OCR sans passer par CATIA :
+```powershell
+python module_catia_cotes_fonctionnelles/visual_annotation_scanner.py
+```
+- **Ce que fait la commande** :
+  - Scanne toutes les captures présentes dans `captures_annotations/`.
+  - Effectue la détection géométrique LSD, l'isolation de la cellule $IT$, l'extraction des références et des conditions.
+  - Déduplique et génère le fichier `results/frame_inventory_ocr/frame_inventory_latest.json` ainsi que les images de debug dans `results/frame_inventory_ocr/cadres_detectes/`.
+
+---
+
+### Méthode 3 : Évaluation & Rapport de Benchmark des Performances
+Pour mesurer la précision, le rappel et le taux de couverture global :
 ```powershell
 python scratch/evaluate_geometry_detection.py
 ```
-*Ce mode traite l'ensemble des images du dossier `captures_annotations/`, affiche les métriques de précision/rappel en temps réel et génère les images de debug dans `results/frame_inventory_ocr/`.*
 
 ---
 
-### Mode 3 : Exécution des Tests Unitaires & Non-Régression
-Pour vérifier l'intégrité de tous les algorithmes (tests synthétiques et non-régression) :
+### Méthode 4 : Exécution des Tests Automatisés (Synthétiques & Non-Régression)
+Pour valider l'intégrité du code :
 ```powershell
 python -m unittest discover -s tests -p "test_*.py"
+```
+
+---
+
+## 🔄 Procédure pour Traiter une Nouvelle Pièce (Vidage du Cache)
+
+Lorsque vous passez à un **autre fichier pièce (`.CATPart`)** ou à un **nouveau jeu de captures**, vous devez vider le cache pour garantir un calcul 100% neuf sans réutiliser les anciennes données.
+
+### Étape 1 : Vider le cache en une seule commande PowerShell
+```powershell
+python -c "from pathlib import Path; import shutil; root = Path('.'); [c.unlink() for c in root.glob('results/**/cache*.json')]; [c.unlink() for c in root.glob('results/**/frame_inventory_*.json')]; [shutil.rmtree(p) for p in root.glob('**/__pycache__') if p.is_dir()]; print('Cache vidé avec succès !')"
+```
+
+### Étape 2 : Mettre à jour les captures
+- Placez les nouvelles captures d'écran de votre pièce dans le dossier `captures_annotations/` (au format `.png`).
+- *(Optionnel)* : Vous pouvez utiliser la fonction de capture automatique intégrée si CATIA est ouvert :
+  ```powershell
+  python -c "import sys; sys.path.insert(0, 'module_catia_cotes_fonctionnelles'); import visual_annotation_scanner as s; s.interactive_capture()"
+  ```
+
+### Étape 3 : Relancer le traitement
+```powershell
+python module_catia_cotes_fonctionnelles/catia_functional_tolerances.py
 ```
 
 ---
@@ -147,7 +185,7 @@ Extract_donnee_Ocr_OpenCv/
 │
 ├── requirements.txt                     # Liste des dépendances Python (pywin32, opencv, pytesseract...)
 ├── .gitignore                           # Exclusions Git (fichiers temporaires, caches)
-└── README.md                            # Documentation complète du projet
+└── README.md                            # Documentation complète du projet de A à Z
 ```
 
 ---

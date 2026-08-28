@@ -1,222 +1,199 @@
 # Extraction et Analyse Automatique des Tolérances Fonctionnelles CATIA V5 (GD&T / ISO GPS)
 
-Bienvenue dans le système automatisé d'extraction, d'analyse géométrique et d'exportation des cotations fonctionnelles et tolérances géométriques depuis **CATIA V5** vers **Microsoft Excel (.xlsx)**.
+Ce projet fournit une solution logicielle industrielle automatisée pour extraire, analyser et réconcilier les tolérances fonctionnelles (GD&T / ISO GPS) depuis **CATIA V5** vers **Microsoft Excel (.xlsx)** en combinant l'**API Automation COM** et la **Vision par Ordinateur (OpenCV, LSD et OCR local)**.
 
 ---
 
 ## 📖 Sommaire
-1. [Architecture Générale](#-architecture-générale)
-2. [Pré-requis Système de A à Z](#-pré-requis-système-de-a-à-z)
-3. [Installation Pas à Pas](#-installation-pas-à-pas)
-4. [Toutes les Méthodes d'Exécution de A à Z](#-toutes-les-méthodes-dexécution-de-a-à-z)
-5. [Procédure pour Traiter une Nouvelle Pièce (Vidage du Cache)](#-procédure-pour-traiter-une-nouvelle-pièce-vidage-du-cache)
-6. [Structure des Fichiers et Résultats Produits](#-structure-des-fichiers-et-résultats-produits)
-7. [Dépannage et Questions Fréquentes](#-dépannage-et-questions-fréquentes)
+1. [Pré-requis Système et Outils Indispensables](#1-pré-requis-système-et-outils-indispensables)
+2. [Installation Complète de Toutes les Bibliothèques (Pas à Pas)](#2-installation-complète-de-toutes-les-bibliothèques-pas-à-pas)
+3. [Déroulement Chronologique d'Exécution du Programme](#3-déroulement-chronologique-dexécution-du-programme)
+   - [Étape 1 : Prise des Captures de la Pièce 3D (`visual_annotation_scanner.py`)](#étape-1--prise-des-captures-de-la-pièce-3d)
+   - [Étape 2 : Extraction de l'Arbre et Calcul des Tolérances (`catia_functional_tolerances.py`)](#étape-2--extraction-de-larbre-et-calcul-des-tolérances)
+4. [Où Trouver Tous les Résultats et Fichiers Générés ?](#4-où-trouver-tous-les-résultats-et-fichiers-générés-)
+5. [Procédure pour Traiter une Nouvelle Pièce (Vidage du Cache)](#5-procédure-pour-traiter-une-nouvelle-pièce-vidage-du-cache)
+6. [Dépannage et Questions Fréquentes](#6-dépannage-et-questions-fréquentes)
 
 ---
 
-## 🎯 Architecture Générale
+## 1. Pré-requis Système et Outils Indispensables
 
-Le projet repose sur un pipeline hybride **« Arbre CATIA + Vision par Ordinateur (LSD & OCR Local) »** :
-
-```
-┌──────────────────────────┐        ┌───────────────────────────────┐
-│     CATIA V5 ACTIF       │        │     CAPTURES D'ANNOTATIONS    │
-│  (Session Windows COM)   │        │     (captures_annotations/)   │
-└────────────┬─────────────┘        └───────────────┬───────────────┘
-             │                                      │
-             ▼                                      ▼
-   read_part_tree()                     scan_annotation_captures()
-  (Extraction de l'arbre                (Détection OpenCV + Parois LSD
-    des séries 01B01...)                  + Isolation Cellule 2 IT)
-             │                                      │
-             └──────────────────┬───────────────────┘
-                                │
-                                ▼
-                   enrich_rows_with_visual_ocr()
-                    (Rapprochement & Consensus)
-                                │
-                                ▼
-                       export_to_excel()
-             (Génération du classeur Excel .xlsx
-                 + Rapport .diagnostic.json)
-```
-
-1. **Extraction de l'Arbre CATIA (Automation COM)** : Récupération de la hiérarchie officielle `REF` > `Groupes fonctionnels` > `Séries`.
-2. **Détection Géométrique des Cadres (OpenCV + LSD)** :
-   - Détection des cadres par contours fermés (`minAreaRect`).
-   - Mesure exacte des parois verticales et horizontales avec l'algorithme LSD (*Line Segment Detector*).
-   - **Isolation stricte de la Cellule 2 ($IT$)** et confirmation par la Référence $A$ en Cellule 3.
-   - Détection des cadres conditionnels à 2 cellules (`[ ⌓ | 1.4 ]` avec `HEIGHT > 6mm`).
-   - Extraction des multiplicateurs ($Xn$) et des références ($A\dots E$).
-3. **Export Excel Structuré** : Génération d'un classeur Excel formaté avec styles professionnels et d'un fichier diagnostic complet.
-
----
-
-## 🛠️ Pré-requis Système de A à Z
-
-Pour exécuter le projet sur n'importe quel ordinateur Windows, vérifiez les pré-requis suivants :
+Avant de lancer le projet sur votre poste Windows, assurez-vous que les éléments suivants sont installés :
 
 1. **Système d'exploitation** : Windows 10 ou Windows 11 (64 bits).
-2. **Python** : Version 3.10, 3.11 ou 3.12 installée (avec `pip` et ajouté au `PATH`).
-3. **Tesseract OCR pour Windows** :
-   - Téléchargez et installez l'installeur officiel : [Tesseract OCR Windows Installer](https://github.com/UB-Mannheim/tesseract/wiki).
-   - Installez-le dans le chemin par défaut : `C:\Program Files\Tesseract-OCR\`.
-4. **CATIA V5** : Installé sur la machine (avec un document `.CATPart` ouvert pour le mode extraction directe).
-5. **Microsoft Excel** : Installé sur la machine (requis par le module d'automatisation COM `win32com`).
+2. **Python** : Version **3.10, 3.11 ou 3.12** installée (avec `pip` activé et la case *Add Python to PATH* cochée).
+3. **Tesseract OCR pour Windows** (Moteur de reconnaissance optique) :
+   - Téléchargez l'installateur officiel : [Tesseract OCR Windows 64-bit Installer](https://github.com/UB-Mannheim/tesseract/wiki).
+   - Installez-le dans son répertoire par défaut : `C:\Program Files\Tesseract-OCR\`.
+   - *(Vérification)* : Le fichier `C:\Program Files\Tesseract-OCR\tesseract.exe` doit être présent.
+4. **CATIA V5** : Installé sur la machine avec une licence active.
+5. **Microsoft Excel** : Installé sur la machine (nécessaire pour l'exportation et le formatage automatique via COM).
 
 ---
 
-## 📦 Installation Pas à Pas
+## 2. Installation Complète de Toutes les Bibliothèques (Pas à Pas)
 
-Ouvrez un terminal **PowerShell** et suivez ces étapes :
+Ouvrez un terminal **PowerShell** ou **Git Bash** et exécutez les étapes suivantes :
 
-### 1. Cloner le dépôt GitHub
+### Étape A : Cloner ou Télécharger le Dépôt
 ```powershell
 git clone https://github.com/mouadelhilali1-max/Extract_donnee_Ocr_OpenCv.git
 cd Extract_donnee_Ocr_OpenCv
 ```
 
-### 2. Créer et activer l'environnement virtuel Python
+### Étape B : Créer et Activer l'Environnement Virtuel Python (`.venv`)
 ```powershell
-# Création de l'environnement virtuel (.venv)
+# 1. Création de l'environnement virtuel
 python -m venv .venv
 
-# Activation sous PowerShell
+# 2. Activation sous PowerShell
 .\.venv\Scripts\Activate.ps1
 ```
-*(Si PowerShell bloque l'activation, autorisez les scripts locaux avec : `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`)*
+*(Si PowerShell bloque l'activation avec une erreur de script, lancez une fois : `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` puis réactivez).*
 
-### 3. Installer les dépendances Python
+### Étape C : Installer TOUTES les Bibliothèques Nécessaires
+
+Vous pouvez installer l'ensemble des dépendances en une seule commande :
 ```powershell
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
----
-
-## 🚀 Toutes les Méthodes d'Exécution de A à Z
-
-Le projet propose différentes commandes selon vos besoins :
-
-### Méthode 1 : Pipeline Complet de Production (Arbre CATIA + Scan Visuel + Export Excel)
-À utiliser lorsque **CATIA V5 est ouvert** avec votre pièce (`.CATPart`) active :
+#### Détail exhaustif de chaque bibliothèque installée :
+Si vous souhaitez installer ou vérifier chaque bibliothèque manuellement une par une :
 ```powershell
-python module_catia_cotes_fonctionnelles/catia_functional_tolerances.py
-```
-- **Ce que fait la commande** :
-  1. Se connecte à CATIA V5 et lit l'arbre des spécifications.
-  2. Lance automatiquement le scanner visuel sur les captures.
-  3. Rapproche chaque série avec son cadre physique.
-  4. Crée le classeur Excel final formaté dans `results/excel/`.
-  5. Génère le rapport de diagnostic JSON `.diagnostic.json`.
-
----
-
-### Méthode 2 : Lancement Direct du Scanner Visuel d'Annotations
-Pour exécuter directement le moteur de vision et d'OCR sans passer par CATIA :
-```powershell
-python module_catia_cotes_fonctionnelles/visual_annotation_scanner.py
-```
-- **Ce que fait la commande** :
-  - Scanne toutes les captures présentes dans `captures_annotations/`.
-  - Effectue la détection géométrique LSD, l'isolation de la cellule $IT$, l'extraction des références et des conditions.
-  - Déduplique et génère le fichier `results/frame_inventory_ocr/frame_inventory_latest.json` ainsi que les images de debug dans `results/frame_inventory_ocr/cadres_detectes/`.
-
----
-
-### Méthode 3 : Évaluation & Rapport de Benchmark des Performances
-Pour mesurer la précision, le rappel et le taux de couverture global :
-```powershell
-python scratch/evaluate_geometry_detection.py
+pip install opencv-python   # Traitement d'images, détection des contours et transformation affine
+pip install numpy           # Calculs matriciels, trigonométrie et projections géométriques
+pip install pandas          # Structuration et manipulation des tableaux de données
+pip install pytesseract     # Interface Python avec le binaire Tesseract OCR
+pip install pywin32         # Connexion API COM avec CATIA V5 et Microsoft Excel
+pip install openpyxl        # Génération et styles des classeurs Excel .xlsx
+pip install mss             # Capture d'écran ultra-rapide et légère
+pip install PyGetWindow     # Détection et positionnement de la fenêtre active CATIA V5
+pip install PyAutoGUI       # Automatisation du focus et de la souris
+pip install Pillow          # Manipulation et découpages d'images (PNG)
 ```
 
 ---
 
-### Méthode 4 : Exécution des Tests Automatisés (Synthétiques & Non-Régression)
-Pour valider l'intégrité du code :
-```powershell
-python -m unittest discover -s tests -p "test_*.py"
+## 3. Déroulement Chronologique d'Exécution du Programme
+
+Le traitement de votre pièce mécanique s'effectue en **2 étapes séquentielles exactes** :
+
+```
+                  FLUX CHRONOLOGIQUE D'EXÉCUTION
+                  ═════════════════════════════
+
+  [ CATIA V5 Ouvert avec la Pièce 3D ]
+                  │
+                  ▼
+  ┌────────────────────────────────────────────────────────┐
+  │ ÉTAPE 1 : Prise des Captures 3D                        │
+  │ (visual_annotation_scanner.py -> captures_annotations/)│
+  └───────────────────────┬────────────────────────────────┘
+                          │
+                          ▼
+  ┌────────────────────────────────────────────────────────┐
+  │ ÉTAPE 2 : Extraction de l'Arbre & Calcul des Tolérances│
+  │ (catia_functional_tolerances.py -> exports/*.xlsx)     │
+  └───────────────────────┬────────────────────────────────┘
+                          │
+                          ▼
+  ┌────────────────────────────────────────────────────────┐
+  │ RÉSULTATS : Excel structuré + Diagnostics + Debug vert │
+  └────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### Méthode 5 : Extraction de l'Arbre des Annotations FTA par Défilement & Captures (`main.py`)
-> **💡 Justification Technique Importante** :  
-> Dans CATIA V5, la branche **« Résultat d'un ensemble d'annotations »** contient des objets 3D FTA/TPS qui ne sont **pas exposés par l'API Automation COM standard**. C'est pourquoi nous avons développé ce module dédié qui extrait cette arborescence de manière optique par défilement automatique (*scrolling*) et captures successives avec chevauchement (*overlapping*) :
+### Étape 1 : Prise des Captures de la Pièce 3D
 
-```powershell
-python main.py
-```
-- **Déroulement de l'exécution** :
-  1. Le terminal affiche : `CATIA is ready. Scroll manually to 'Résultat d’un ensemble d’annotations' and press Enter...`
-  2. Vous positionnez la vue sur la ligne dans CATIA et appuyez sur **Entrée** dans le terminal.
-  3. Le script scrolle automatiquement jusqu'en bas, enregistre les captures dans `captures/runs/<date>/`, fusionne les lignes communes et reconstruit la hiérarchie.
-  4. Les résultats exportés sont disponibles dans `results/runs/<date>/excel/annotation_tree.xlsx`, `.csv` et `.json`.
-- **Options utiles** :
-  - `python main.py --auto-find-target` : Recherche et scrolle automatiquement depuis le haut de l'arbre.
-  - `python main.py --capture-only` : Enregistre uniquement les images de l'arbre sans lancer l'OCR.
-  - Consultez le guide complet dédié : [`README_TREE_EXTRACTION.md`](README_TREE_EXTRACTION.md).
+Avant d'extraire les données, le système a besoin des captures des cadres visibles dans l'espace 3D de CATIA.
+
+1. Ouvrez votre pièce (`.CATPart`) dans **CATIA V5** et orientez la vue 3D pour faire apparaître clairement un groupe de cadres de tolérances.
+2. Lancez l'outil de capture interactive dans votre terminal :
+   ```powershell
+   python -c "import sys; sys.path.insert(0, 'module_catia_cotes_fonctionnelles'); import visual_annotation_scanner as s; s.interactive_capture()"
+   ```
+3. Suivez le guide affiché :
+   - Basculez sur la fenêtre CATIA V5 et appuyez sur la touche indiquée pour enregistrer la vue actuelle.
+   - Tournez la pièce dans CATIA pour cadrer les autres tolérances et prenez 1 ou 2 autres captures pour couvrir toutes les séries.
+4. Les images sont enregistrées automatiquement dans le dossier **`captures_annotations/`**.
+
+*(Note : Vous pouvez également placer manuellement vos propres captures d'écran `.png` directement dans le dossier `captures_annotations/`).*
 
 ---
 
-## 🔄 Procédure pour Traiter une Nouvelle Pièce (Vidage du Cache)
+### Étape 2 : Extraction de l'Arbre et Calcul des Tolérances
 
-Lorsque vous passez à un **autre fichier pièce (`.CATPart`)** ou à un **nouveau jeu de captures**, vous devez vider le cache pour garantir un calcul 100% neuf sans réutiliser les anciennes données.
+Dès que vos captures sont prêtes dans `captures_annotations/`, lancez le programme principal :
 
-### Étape 1 : Vider le cache en une seule commande PowerShell
-```powershell
-python -c "from pathlib import Path; import shutil; root = Path('.'); [c.unlink() for c in root.glob('results/**/cache*.json')]; [c.unlink() for c in root.glob('results/**/frame_inventory_*.json')]; [shutil.rmtree(p) for p in root.glob('**/__pycache__') if p.is_dir()]; print('Cache vidé avec succès !')"
-```
-
-### Étape 2 : Mettre à jour les captures
-- Placez les nouvelles captures d'écran de votre pièce dans le dossier `captures_annotations/` (au format `.png`).
-- *(Optionnel)* : Vous pouvez utiliser la fonction de capture automatique intégrée si CATIA est ouvert :
-  ```powershell
-  python -c "import sys; sys.path.insert(0, 'module_catia_cotes_fonctionnelles'); import visual_annotation_scanner as s; s.interactive_capture()"
-  ```
-
-### Étape 3 : Relancer le traitement
 ```powershell
 python module_catia_cotes_fonctionnelles/catia_functional_tolerances.py
 ```
 
----
-
-## 📂 Structure des Fichiers et Résultats Produits
-
-```
-Extract_donnee_Ocr_OpenCv/
-│
-├── module_catia_cotes_fonctionnelles/
-│   ├── catia_functional_tolerances.py   # Chef d'orchestre : connexion CATIA COM & export Excel
-│   └── visual_annotation_scanner.py     # Moteur de vision : OpenCV, parois LSD, OCR localisé
-│
-├── captures_annotations/                # Jeu de captures réelles pour le scan visuel
-├── models/tessdata/                     # Fichiers de données linguistiques OCR (fra, eng)
-├── tests/                               # Tests automatisés (synthétiques et réels)
-│   ├── test_genericity_synthetic.py     # Tests de généricité sur tolérances arbitraires
-│   └── test_regression_valeurs_connues.py # Tests de non-régression
-│
-├── results/                             # Dossier de sortie généré automatiquement
-│   ├── excel/                           # Classeurs finaux (.xlsx) avec styles professionnels
-│   └── frame_inventory_ocr/             # Diagnostics JSON et images de debug des cadres
-│
-├── requirements.txt                     # Liste des dépendances Python (pywin32, opencv, pytesseract...)
-├── .gitignore                           # Exclusions Git (fichiers temporaires, caches)
-└── README.md                            # Documentation complète du projet de A à Z
-```
+**Ce que fait automatiquement le programme :**
+1. **Connexion COM** : Se rattache à CATIA V5.
+2. **Extraction de l'Arbre** : Lit l'arbre gauche et récupère la liste officielle des séries (`known_series` : `01A01`, `02A01`, `06A01`...).
+3. **Moteur de Vision V9.0** :
+   - Détecte les cadres OpenCV et redresse les angles (`rotation affine`).
+   - Mesure les parois physiques par l'algorithme **LSD** (*Line Segment Detector*).
+   - **Isole strictement la Cellule 2 ($IT$)** et vérifie la Référence $A$ en Cellule 3.
+   - Extrait les multiplicateurs ($Xn$) dans la bande supérieure.
+4. **Consensus et Déduplication** : Fusionne les vues multiples, supprime les doublons et élimine les faux positifs ($FP = 0$).
+5. **Livrables Finaux** : Génère le fichier Excel formaté et le rapport de diagnostic JSON.
 
 ---
 
-## ❓ Dépannage et Questions Fréquentes
+## 4. Où Trouver Tous les Résultats et Fichiers Générés ?
 
-- **Erreur `TesseractNotFoundError`** :
-  Assurez-vous que Tesseract est bien installé dans `C:\Program Files\Tesseract-OCR\tesseract.exe`. Si vous l'avez installé ailleurs, définissez la variable d'environnement :
-  `$env:TESSERACT_CMD = "C:\MonChemin\tesseract.exe"`.
-- **Erreur `CATIA.Application introuvable`** :
-  Vérifiez que CATIA V5 est bien lancé et qu'un document `.CATPart` est actif au premier plan.
-- **Vider le cache d'OCR** :
-  Pour forcer un recalcul brut complet sans cache, supprimez les fichiers `results/frame_inventory_ocr/cache_*.json`.
+Après l'exécution, tous les fichiers sont stockés dans des dossiers clairs :
 
+### 📊 1. Le Classeur Excel Final (.xlsx)
+Formaté avec les colonnes : *Série, Groupe Fonctionnel, Référence, Tolérance IT, Multiplicité, Condition, Confiance, Source* :
+- 📁 **Emplacement :** `exports/` (ou `results/excel/`)
+- 📄 **Fichier :** `exports/<NomDeLaPiece>_cotes_fonctionnelles_<Date_Heure>.xlsx`
+  *(Exemple : `exports/R20_cotes_fonctionnelles_20260825_035825.xlsx`)*
 
+### 🔍 2. Le Rapport de Traçabilité et Diagnostic JSON
+- 📁 **Emplacement :** `exports/<NomDeLaPiece>_cotes_fonctionnelles_<Date_Heure>.diagnostic.json`
+
+### 🖼️ 3. Les Images de Debug avec Cadres Verts Détectés
+Contient les captures de la pièce avec **un cadre vert tracé autour de chaque tolérance et le texte OCR en vert au-dessus** (ex: `03A03 IT=1.6`, `06A02 IT=1.4`) :
+- 📁 **Emplacement :** `results/frame_inventory_ocr/cadres_detectes/`
+  *(Exemple : `annotation_view_01_..._v90_lsd_frames.png`)*
+
+### 🗂️ 4. L'Inventaire Consolidé des Cadres
+- 📁 **Emplacement :** `results/frame_inventory_ocr/frame_inventory_latest.json`
+
+---
+
+## 5. Procédure pour Traiter une Nouvelle Pièce (Vidage du Cache)
+
+Lorsque vous changez de **fichier pièce (`.CATPart`)** ou de **jeu de captures**, vous devez réinitialiser le cache pour garantir un calcul 100 % neuf :
+
+1. **Exécutez la commande de vidage sous PowerShell** :
+   ```powershell
+   python -c "from pathlib import Path; import shutil; root = Path('.'); [c.unlink() for c in root.glob('results/**/cache*.json')]; [c.unlink() for c in root.glob('results/**/frame_inventory_*.json')]; [shutil.rmtree(p) for p in root.glob('**/__pycache__') if p.is_dir()]; print('>>> Cache vidé avec succès !')"
+   ```
+
+2. **Nettoyez le dossier des captures et avancez la nouvelle pièce** :
+   - Placez les nouvelles captures dans `captures_annotations/`.
+
+3. **Relancez le traitement complet** :
+   ```powershell
+   python module_catia_cotes_fonctionnelles/catia_functional_tolerances.py
+   ```
+
+4. **Récupérez votre nouveau fichier Excel dans `exports/`**.
+
+---
+
+## 6. Dépannage et Questions Fréquentes
+
+- **Erreur `TesseractNotFoundError`** :  
+  Vérifiez que Tesseract est installé dans `C:\Program Files\Tesseract-OCR\tesseract.exe` (variable `$env:TESSERACT_CMD`).
+- **Erreur `CATIA.Application introuvable`** :  
+  Vérifiez que CATIA V5 est bien démarré et qu'un fichier `.CATPart` est actif.
+- **Tolérance manquante ou non reconnue** :  
+  Tournez la pièce 3D dans CATIA pour prendre une capture où la tolérance est bien nette et réexécutez.
